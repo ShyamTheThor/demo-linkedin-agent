@@ -1,10 +1,26 @@
 # LinkedIn Buddy
 
-Workshop guide: build a Fetch.ai agent that writes a LinkedIn post with **ASI:One**, generates an image with **ASI:One**, and publishes it to LinkedIn every day at **6:00 PM IST**.
+Workshop guide: build a Fetch.ai agent that writes a LinkedIn post with **ASI:One**, generates an image with **ASI:One**, and publishes it every day at **6:00 PM IST**.
 
 You can chat with it on Agentverse / ASI:One using the **Chat Protocol**.
 
+Works on **Windows** and **Mac**. Use the command for your computer.
+
 Repo: [github.com/ShyamRV/demo-linkedin-agent](https://github.com/ShyamRV/demo-linkedin-agent)
+
+---
+
+## Before you start
+
+| You use | Open this app |
+| --- | --- |
+| **Windows** | PowerShell |
+| **Mac** | Terminal |
+
+On Windows, `python` is the usual command.  
+On Mac, `python3` is the usual command.
+
+If a command fails, try the other one (`python` vs `python3`).
 
 ---
 
@@ -18,8 +34,6 @@ You (chat)  -->  LinkedIn Buddy (uAgent)
                       +--> LinkedIn API publishes it
                       +--> every day at 6:00 PM it posts by itself
 ```
-
-**Stack**
 
 | Piece | What it does |
 | --- | --- |
@@ -39,42 +53,42 @@ Do these **before** writing any code.
 
 1. Open [agentverse.ai](https://agentverse.ai)
 2. Sign up / log in
-3. Keep this tab open. You will host or connect the agent here later.
+3. Keep this tab open
 
 ### 2. ASI:One API key
 
 1. Open [asi1.ai](https://asi1.ai) and sign in
-2. Go to [asi1.ai/developer](https://asi1.ai/developer) (or Dashboard → API keys)
+2. Go to [asi1.ai/developer](https://asi1.ai/developer)
 3. Create an API key
 4. Copy it. It looks like `sk_...`
 5. You will paste it into `.env` as `ASI1_API_KEY`
 
-Hosted agents on Agentverse already get `ASI1_API_KEY` injected. You still need this key for **local** runs.
+Hosted agents on Agentverse already get this key. You still need it for **local** runs.
 
 ### 3. LinkedIn Developer App
 
 1. Open [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps)
 2. Click **Create app**
-3. Fill name, LinkedIn page, and logo (LinkedIn requires a page + logo)
-4. Open the app → **Products** and request / enable:
+3. Add a name, LinkedIn page, and logo
+4. Open **Products** and enable:
    - **Sign In with LinkedIn using OpenID Connect**
    - **Share on LinkedIn**
 5. Open **Auth**
 6. Copy **Client ID** and **Client Secret**
-7. Under **Authorized redirect URLs for your app**, add **exactly**:
+7. Under **Authorized redirect URLs**, add exactly:
 
 ```text
 http://localhost:8000/callback
 ```
 
-Must match character-for-character:
+Must match exactly:
 
 - `http` not `https`
 - `localhost` not `127.0.0.1`
-- no trailing slash
+- no slash at the end
 - port `8000`
 
-If this is wrong you will see: `The redirect_uri does not match the registered value`.
+Wrong URL = `The redirect_uri does not match the registered value`.
 
 ---
 
@@ -83,9 +97,9 @@ If this is wrong you will see: `The redirect_uri does not match the registered v
 | File | Purpose |
 | --- | --- |
 | `agent.py` | The whole agent. Paste this into Agentverse **Build**. |
-| `.env` | Your secrets. **Do not commit or share this.** |
+| `.env` | Your secrets. **Do not share this file.** |
 | `.env.example` | Empty template of the same keys |
-| `linkedin_setup.py` | One-time script that gets the LinkedIn token + author URN |
+| `linkedin_setup.py` | One-time script that gets the LinkedIn token |
 | `requirements.txt` | Python packages |
 | `README.md` | This workshop guide |
 
@@ -93,66 +107,90 @@ If this is wrong you will see: `The redirect_uri does not match the registered v
 
 ## Step 1 — Get the code
 
+**Windows**
+
 ```powershell
 git clone https://github.com/ShyamRV/demo-linkedin-agent.git
 cd demo-linkedin-agent
 ```
 
-Or download the ZIP from GitHub and unzip it.
+**Mac**
+
+```bash
+git clone https://github.com/ShyamRV/demo-linkedin-agent.git
+cd demo-linkedin-agent
+```
+
+No Git? Download the ZIP from GitHub, unzip it, then open that folder in your terminal.
 
 ---
 
-## Step 2 — Python 3.10+ (required)
+## Step 2 — Check Python (3.10 or newer)
 
-This agent needs **Python 3.10 or newer**. Python 3.8 cannot install current `uagents` / `openai`.
+This agent needs **Python 3.10+**.
 
-Check:
+**Windows**
 
 ```powershell
 python --version
 ```
 
-If you see `3.8` or nothing, install Python 3.12 from [python.org/downloads](https://www.python.org/downloads/).
+**Mac**
 
-On this workshop machine we used:
-
-```powershell
-& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" --version
+```bash
+python3 --version
 ```
 
-You should see `Python 3.12.x`.
+You should see `Python 3.10`, `3.11`, or `3.12`.
 
-Install packages:
+If you see `3.8`, `3.9`, or `not found`, install Python from [python.org/downloads](https://www.python.org/downloads/). On the Windows installer, tick **Add python.exe to PATH**.
 
-```powershell
-& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m pip install -r requirements.txt
-```
+---
 
-If `python` is already 3.10+, this is enough:
+## Step 3 — Install packages
+
+**Windows**
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-Packages installed: `uagents`, `openai`, `requests`, `python-dotenv`.
+**Mac**
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+This installs: `uagents`, `openai`, `requests`, `python-dotenv`.
 
 ---
 
-## Step 3 — Create `.env`
+## Step 4 — Create `.env`
 
-1. Copy `.env.example` to `.env`
-2. Open `.env` and fill the values below
+**Windows**
+
+```powershell
+copy .env.example .env
+```
+
+**Mac**
+
+```bash
+cp .env.example .env
+```
+
+Open `.env` in any editor and fill these values:
 
 ```env
 # ASI:One  — from https://asi1.ai/developer
 ASI1_API_KEY=sk_your_key_here
 ASI1_BASE_URL=https://api.asi1.ai/v1
 
-# LinkedIn  — leave token/URN empty until Step 4
+# LinkedIn  — leave these empty until Step 5
 LINKEDIN_ACCESS_TOKEN=
 LINKEDIN_AUTHOR_URN=
 
-# Schedule (18 = 6pm, 5.5 = India IST)
+# 18 = 6pm, 5.5 = India (IST)
 POST_HOUR=18
 TIMEZONE_OFFSET=5.5
 
@@ -168,75 +206,81 @@ LINKEDIN_CLIENT_SECRET=your_client_secret
 LINKEDIN_REDIRECT_URI=http://localhost:8000/callback
 ```
 
-**Handle rule:** use `linkedin-buddy` (hyphen). Do **not** use `linkedin buddy` (space). Agentverse handles are max 20 characters and cannot have spaces.
+Handle must be `linkedin-buddy` (with a hyphen).  
+Do **not** use `linkedin buddy` (space). Agentverse will not accept that.
 
-Do not put real secrets in GitHub. `.env` is gitignored.
+Do not put real secrets on GitHub.
 
 ---
 
-## Step 4 — Get LinkedIn access token and author URN
+## Step 5 — Get the LinkedIn token
 
-This is a one-time login. The script writes two values into `.env`:
+This login is one time. The script writes two values into `.env`:
 
 - `LINKEDIN_ACCESS_TOKEN` — lets the agent post as you
-- `LINKEDIN_AUTHOR_URN` — `urn:li:person:xxxxxxxx` (you, the author)
+- `LINKEDIN_AUTHOR_URN` — `urn:li:person:xxxxxxxx`
 
-### 4.1 Run the setup script (PowerShell)
+### 5.1 Run the script
 
-```powershell
-& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" .\linkedin_setup.py
-```
-
-If `python` is 3.10+:
+**Windows**
 
 ```powershell
-python .\linkedin_setup.py
+python linkedin_setup.py
 ```
 
-PowerShell notes:
+**Mac**
 
-- Do **not** use `"%LOCALAPPDATA%\..."` — that is CMD syntax
-- Do **not** run `linkedin_setup.py` alone — use `.\linkedin_setup.py` or `python .\linkedin_setup.py`
+```bash
+python3 linkedin_setup.py
+```
 
-### 4.2 Log in to LinkedIn
+### 5.2 Log in
 
-The script prints a URL. Open it, log in, click **Allow**.
+The script prints a URL. Open it, log in to LinkedIn, click **Allow**.
 
-### 4.3 Copy the `code`
+### 5.3 Copy the code
 
-LinkedIn redirects to a page like:
+LinkedIn opens a page like:
 
 ```text
 http://localhost:8000/callback?code=AQS...
 ```
 
-The page **fails to load**. That is expected. You do not need a server on port 8000.
+The page **will not load**. That is normal.
 
-Copy **only** the value after `code=` (stop before `&` if there is one).
+Copy only the part after `code=` (stop before `&` if you see one).
 
-Paste it into the terminal where it says `Paste the code here:` and press Enter.
+Paste it into the terminal at `Paste the code here:` and press Enter.
 
 The code expires in a few minutes. If it fails, run the script and log in again.
 
-### 4.4 Confirm `.env`
+### 5.4 Check `.env`
 
-You should now see filled values:
+You should now see:
 
 ```env
 LINKEDIN_ACCESS_TOKEN=AQV...
 LINKEDIN_AUTHOR_URN=urn:li:person:xxxxxxxx
 ```
 
-The token lasts about **60 days**. When posting starts returning 401, run `linkedin_setup.py` again.
+The token lasts about **60 days**. If posting starts failing, run `linkedin_setup.py` again.
 
-To post as a **company page** instead of your profile, use `urn:li:organization:YOUR_ID` and the `w_organization_social` scope.
+To post as a company page, use `urn:li:organization:YOUR_ID`.
 
 ---
 
-## Step 5 — Run the agent locally
+## Step 6 — Run the agent on your computer
+
+**Windows**
 
 ```powershell
-& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" .\agent.py
+python agent.py
+```
+
+**Mac**
+
+```bash
+python3 agent.py
 ```
 
 Good logs look like this:
@@ -246,38 +290,32 @@ INFO: [LinkedIn Buddy]: Starting agent with address: agent1q...
 INFO: [LinkedIn Buddy]: Agent inspector available at https://agentverse.ai/inspect/?uri=...
 INFO: [LinkedIn Buddy]: Starting server on http://0.0.0.0:8001
 INFO: [LinkedIn Buddy]: Manifest published successfully: AgentChatProtocol
-INFO: [uagents.registration]: Registration on Almanac API successful
 ```
 
-### Expected warnings (safe to ignore)
+Leave this terminal open. Do not close it.
 
-| Warning | Meaning |
+| Warning | What it means |
 | --- | --- |
-| `I do not have enough funds to register on Almanac contract` | No FET in the wallet. API registration already worked. |
-| `LinkedIn secrets are empty` | Step 4 is not done. Fill token + URN, then restart. |
-| `ASI1_API_KEY is empty` | Add the ASI:One key to `.env`, then restart. |
-
-Leave this terminal running. Do not close it.
+| `I do not have enough funds to register on Almanac contract` | Safe to ignore |
+| `LinkedIn secrets are empty` | Finish Step 5, then restart |
+| `ASI1_API_KEY is empty` | Add the ASI:One key to `.env`, then restart |
 
 ---
 
-## Step 6 — Connect the mailbox (required for chat)
+## Step 7 — Connect the mailbox (needed for chat)
 
 A local agent cannot receive Agentverse / ASI:One chat until the mailbox is connected.
 
 1. Copy the **Agent inspector** URL from the terminal
-2. Open it while the agent is running
+2. Open it in a browser (agent must still be running)
 3. Click **Connect**
 4. Choose **Mailbox**
-5. Confirm the log shows mailbox connected
 
-Now you can use **Chat with Agent** on Agentverse.
-
-If you skip this, chat will not reach the local agent.
+Then use **Chat with Agent** on Agentverse.
 
 ---
 
-## Step 7 — Talk to the agent
+## Step 8 — Talk to the agent
 
 Use **Chat with Agent** on Agentverse, or ASI:One with **`@linkedin-buddy`**.
 
@@ -285,68 +323,58 @@ Use **Chat with Agent** on Agentverse, or ASI:One with **`@linkedin-buddy`**.
 | --- | --- |
 | `help` | Shows commands |
 | `status` | Last post + next 6pm slot |
-| `preview` | Draft today's Fetch.ai post (does **not** publish) |
+| `preview` | Draft today's post (does **not** publish) |
 | `preview about uAgents` | Draft about that topic |
-| `post now` | Write image + publish today's Fetch.ai post |
-| `post about <topic or profile>` | Write image + publish that topic |
+| `post now` | Write, make image, publish today's post |
+| `post about <topic>` | Write, make image, publish that topic |
 
-**Always test with `preview` first.** `post now` and `post about` publish for real.
-
-Example:
+**Try `preview` first.** `post now` and `post about` publish for real.
 
 ```text
 preview about Fetch.ai Agentverse and ASI:One
 ```
 
-Then:
-
 ```text
 post about Fetch.ai Agentverse and ASI:One
 ```
 
-You can also paste a LinkedIn profile after `post about` and it will write a post about that person.
+You can also paste a LinkedIn profile after `post about`.
 
 ---
 
-## Step 8 — Host on Agentverse (workshop deploy)
+## Step 9 — Host on Agentverse
 
-There are two ways to put an agent on Agentverse. Use **Hosted Agent**. Do **not** use External Integration unless you have a public HTTPS URL.
-
-### Do this
+Use a **Hosted Agent**. Do not use External Integration unless you have a public HTTPS URL.
 
 1. Go to [agentverse.ai](https://agentverse.ai)
 2. Click **Launch an Agent**
 3. Choose **Generate Agent** or a **blank Hosted Agent**
-4. **Do not** choose External Integration (that asks for an Endpoint URL — you do not have one)
-5. Open **Build**
-6. Paste the full contents of `agent.py`
-7. Open **`.env` / Secrets**
-8. Paste the same keys from your local `.env` (at least):
+4. Do **not** choose External Integration (that asks for an Endpoint URL)
+5. Open **Build** and paste all of `agent.py`
+6. Open **`.env` / Secrets** and paste at least:
    - `LINKEDIN_ACCESS_TOKEN`
    - `LINKEDIN_AUTHOR_URN`
    - `POST_HOUR=18`
    - `TIMEZONE_OFFSET=5.5`
-9. Click **Run**
+7. Click **Run**
 
-Hosted agents already receive `ASI1_API_KEY` and `ASI1_BASE_URL`. Extra `Agent(name=..., port=..., mailbox=True)` arguments are ignored on hosted agents. That is normal.
+Hosted agents already get `ASI1_API_KEY`. Extra local settings like `port` and `mailbox` are ignored there. That is normal.
 
-### What the Endpoint URL field is (skip this)
+### What is Agent Endpoint URL?
 
-If you see **Agent Endpoint URL**, you are on the **external agent** path.
+If you see that field, you chose the **external** path by mistake.
 
-That field is a **public HTTPS address** where Agentverse can send messages to an agent running on your own server, for example:
+It wants a public server address, for example:
 
 ```text
 https://your-server.com:8000/submit
 ```
 
-`localhost` will not work there. For this workshop, go back and create a **Hosted Agent** instead.
+`localhost` will not work. Go back and create a **Hosted Agent**.
 
 ---
 
-## Step 9 — Agentverse profile (so people can find it)
-
-In the agent dashboard, set:
+## Step 10 — Agentverse profile
 
 | Field | Value |
 | --- | --- |
@@ -354,30 +382,39 @@ In the agent dashboard, set:
 | **Handle** | `@linkedin-buddy` (no space) |
 | **Keywords** | fetch.ai, linkedin, uagents, agentverse, asi:one, daily post, linkedin-buddy |
 | **Description** | Posts about Fetch.ai on LinkedIn every day at 6pm. Uses ASI:One for text and images. |
-| **README** | LinkedIn Buddy writes and publishes a daily Fetch.ai LinkedIn post. Chat Protocol enabled. Say `preview`, `post now`, or `post about <topic>`. |
+| **README** | LinkedIn Buddy writes and publishes a daily Fetch.ai LinkedIn post. Say `preview`, `post now`, or `post about <topic>`. |
 
-After it is running, ASI:One can find it as **`@linkedin-buddy`**.
-
----
-
-## How the agent works (for the workshop talk)
-
-1. **`agent.py` is the whole agent.** One file, so it is easy to paste into Agentverse.
-2. **`.env` holds secrets.** `load_dotenv()` reads them locally. On Agentverse, use the Secrets tab.
-3. **Chat Protocol** is attached with `Protocol(spec=chat_protocol_spec)` and `agent.include(protocol, publish_manifest=True)`. That is what makes it show up as `AgentChatProtocol`.
-4. **ASI:One chat** (`https://api.asi1.ai/v1/chat/completions`, model `asi1`) writes the LinkedIn text.
-5. **ASI:One image** (`https://api.asi1.ai/v1/image/generate`) creates the picture.
-6. **LinkedIn** uploads the image, then creates a UGC post.
-7. **`@agent.on_interval(period=60)`** checks every minute. At 6:00 PM (`POST_HOUR=18`) it posts once per day and stores the date in agent storage.
-8. **Chat** can also trigger `preview` / `post now` / `post about ...` at any time.
-
-Daily topics rotate (Fetch.ai, uAgents, Agentverse, ASI:One, Chat Protocol, use cases, decentralized AI).
+ASI:One can then find it as **`@linkedin-buddy`**.
 
 ---
 
-## Restart after changing `.env`
+## How the agent works
 
-The running agent does not reload `.env` by itself. Stop it (Ctrl+C) and start `agent.py` again.
+1. **`agent.py` is the whole agent.** One file, easy to paste into Agentverse.
+2. **`.env` holds secrets.** Local runs load it automatically. On Agentverse, use Secrets.
+3. **Chat Protocol** is enabled with `publish_manifest=True`. That is why it shows as `AgentChatProtocol`.
+4. **ASI:One** writes the text and creates the image.
+5. **LinkedIn** uploads the image and publishes the post.
+6. Every minute the agent checks the clock. At **6:00 PM** it posts once per day.
+7. Chat can also trigger `preview`, `post now`, or `post about ...` any time.
+
+---
+
+## Restart after you change `.env`
+
+Stop the agent with `Ctrl + C`, then run `agent.py` again.
+
+**Windows**
+
+```powershell
+python agent.py
+```
+
+**Mac**
+
+```bash
+python3 agent.py
+```
 
 ---
 
@@ -385,18 +422,20 @@ The running agent does not reload `.env` by itself. Stop it (Ctrl+C) and start `
 
 | Problem | Fix |
 | --- | --- |
-| `Unexpected token 'linkedin_setup.py'` | You used CMD `%LOCALAPPDATA%` in PowerShell. Use `& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" .\linkedin_setup.py` |
-| `linkedin_setup.py is not recognized` | Run `python .\linkedin_setup.py` (note the `.\`) |
-| `redirect_uri does not match` | Add `http://localhost:8000/callback` exactly in the LinkedIn app Auth settings, then try again |
-| Localhost page will not load after LinkedIn login | Expected. Copy `code=` from the address bar |
-| Code expired / invalid | Run the setup script and log in again immediately |
-| `No matching distribution for jiter` / openai install fails | Python is too old. Use 3.10+ |
+| `python` not found on Mac | Use `python3` |
+| `python3` not found on Windows | Use `python` |
+| `python` is 3.8 | Install Python 3.12 from python.org. On Windows, tick **Add to PATH** |
+| `linkedin_setup.py is not recognized` (Windows) | Run `python linkedin_setup.py` from the project folder |
+| `Permission denied` (Mac) | Run `python3 linkedin_setup.py` |
+| `redirect_uri does not match` | Add `http://localhost:8000/callback` exactly in the LinkedIn app |
+| Localhost page will not load after LinkedIn login | Normal. Copy `code=` from the address bar |
+| Code expired | Run the setup script and log in again |
 | Chat does not respond | Agent must be running. Local agents also need **Connect → Mailbox** |
-| Agent replies with help instead of posting | Say `post about ...` or `post now`. Handle is `@linkedin-buddy` not `@linkedin buddy` |
-| `LinkedIn secrets are empty` | Finish Step 4 and restart |
-| Endpoint URL required | You created an External agent. Create a **Hosted Agent** instead |
-| 401 from LinkedIn | Token expired (~60 days). Re-run `linkedin_setup.py` |
-| Almanac contract funds warning | Safe to ignore for the workshop |
+| Agent only replies with help | Say `post about ...` or `post now`. Use `@linkedin-buddy` (hyphen) |
+| `LinkedIn secrets are empty` | Finish Step 5, then restart |
+| Endpoint URL required | You created an External agent. Create a Hosted Agent |
+| 401 from LinkedIn | Token expired. Run `linkedin_setup.py` again |
+| Almanac contract funds warning | Safe to ignore |
 
 ---
 
@@ -408,12 +447,12 @@ The running agent does not reload `.env` by itself. Stop it (Ctrl+C) and start `
 - [ ] Redirect URL `http://localhost:8000/callback`
 - [ ] Client ID + Secret in `.env`
 - [ ] `linkedin_setup.py` wrote token + URN
-- [ ] Python 3.10+ and `pip install -r requirements.txt`
-- [ ] `agent.py` running locally
+- [ ] Python 3.10+ and packages installed
+- [ ] `agent.py` is running
 - [ ] Inspector → Connect → Mailbox
 - [ ] `preview` works
 - [ ] Hosted Agent on Agentverse with the same secrets
-- [ ] Profile name **LinkedIn Buddy**, handle **`@linkedin-buddy`**
+- [ ] Name **LinkedIn Buddy**, handle **`@linkedin-buddy`**
 
 ---
 
@@ -421,6 +460,6 @@ The running agent does not reload `.env` by itself. Stop it (Ctrl+C) and start `
 
 - Agentverse: [agentverse.ai](https://agentverse.ai)
 - ASI:One keys: [asi1.ai/developer](https://asi1.ai/developer)
-- Chat Protocol: [docs.agentverse.ai — Enable the Chat Protocol](https://docs.agentverse.ai/documentation/getting-started/enable-chat-protocol)
+- Chat Protocol: [docs.agentverse.ai](https://docs.agentverse.ai/documentation/getting-started/enable-chat-protocol)
 - LinkedIn apps: [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps)
 - This repo: [github.com/ShyamRV/demo-linkedin-agent](https://github.com/ShyamRV/demo-linkedin-agent)
