@@ -8,6 +8,7 @@ On Agentverse, paste .env values in the editor .env / Secrets tab.
 import os
 import json
 import base64
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from uuid import uuid4
@@ -53,8 +54,17 @@ TOPICS = [
 
 # ---------------------------------------------------------------------------
 # Agent + ASI:One
+# Local: uses name/seed/port/mailbox. Agentverse hosted: extra args are ignored.
 # ---------------------------------------------------------------------------
-agent = Agent()
+agent = Agent(
+    name=os.getenv("AGENT_NAME", "LinkedIn Buddy"),
+    handle=os.getenv("AGENT_HANDLE", "linkedin-buddy"),
+    seed=os.getenv("AGENT_SEED", "linkedin-fetchai-poster-seed"),
+    port=int(os.getenv("AGENT_PORT", "8001")),
+    mailbox=True,
+    publish_agent_details=True,
+    description="LinkedIn Buddy posts about Fetch.ai and people in the ecosystem every day at 6pm.",
+)
 
 asi = OpenAI(base_url=ASI_URL, api_key=ASI_KEY)
 
@@ -83,10 +93,13 @@ def write_post(topic: str) -> tuple[str, str]:
             {
                 "role": "system",
                 "content": (
-                    "You write daily LinkedIn posts about Fetch.ai. "
+                    "You write LinkedIn posts. "
                     "Reply with ONLY valid JSON, no markdown:\n"
                     '{"post": "...", "image_prompt": "..."}\n'
                     "post: 120-180 words, professional, human, no markdown. "
+                    "If the topic is a person or profile, write about them and "
+                    "naturally mention Fetch.ai / agentic AI where it fits. "
+                    "Otherwise write about Fetch.ai. "
                     "End with 4-6 hashtags including #FetchAI #uAgents #Agentverse #ASI.\n"
                     "image_prompt: one sentence, clean professional visual, "
                     "teal and purple, abstract agent network, NO text, NO logos."
@@ -94,7 +107,7 @@ def write_post(topic: str) -> tuple[str, str]:
             },
             {
                 "role": "user",
-                "content": f"Today is {date}. Write about: {topic}",
+                "content": f"Today is {date}. Write a LinkedIn post about:\n{topic}",
             },
         ],
         max_tokens=800,
@@ -225,7 +238,7 @@ def publish_linkedin(text: str, image: Optional[bytes]) -> str:
 # ---------------------------------------------------------------------------
 # Create + publish one post
 # ---------------------------------------------------------------------------
-def run_daily_post(ctx: Context) -> str:
+def run_daily_post(ctx: Context, topic: Optional[str] = None) -> str:
     if not ASI_KEY:
         return "Missing ASI1_API_KEY. Agentverse normally injects this for you."
     if not LINKEDIN_TOKEN or not LINKEDIN_AUTHOR:
@@ -234,7 +247,8 @@ def run_daily_post(ctx: Context) -> str:
             "LINKEDIN_AUTHOR_URN in the Agentverse Secrets tab."
         )
 
-    topic = TOPICS[now_local().timetuple().tm_yday % len(TOPICS)]
+    if not topic:
+        topic = TOPICS[now_local().timetuple().tm_yday % len(TOPICS)]
     ctx.logger.info(f"Writing post about: {topic}")
 
     text, image_prompt = write_post(topic)
@@ -253,6 +267,18 @@ def run_daily_post(ctx: Context) -> str:
     ctx.storage.set("last_post_id", post_id)
     ctx.logger.info(f"Published: {post_id}")
     return f"Published to LinkedIn.\n\n{text}"
+
+
+@agent.on_event("startup")
+async def on_startup(ctx: Context):
+    ctx.logger.info(f"LinkedIn Buddy started at {agent.address}")
+    if not ASI_KEY:
+        ctx.logger.warning("ASI1_API_KEY is empty - add it to .env")
+    if not LINKEDIN_TOKEN or not LINKEDIN_AUTHOR:
+        ctx.logger.warning(
+            "LinkedIn secrets are empty - add LINKEDIN_ACCESS_TOKEN and "
+            "LINKEDIN_AUTHOR_URN to .env"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -277,11 +303,14 @@ async def daily_6pm(ctx: Context):
 # Chat Protocol  (Agentverse + ASI:One)
 # ---------------------------------------------------------------------------
 HELP_TEXT = (
+    "I'm LinkedIn Buddy (@linkedin-buddy). "
     "I post about Fetch.ai on LinkedIn every day at 6:00 PM.\n\n"
-    "Say one of these:\n"
-    "• post now  — create and publish today\n"
-    "• preview   — write a post without publishing\n"
-    "• status    — last post and next schedule"
+    "You can say:\n"
+    "• post now — publish today's Fetch.ai post\n"
+    "• post about <topic or profile> — write and publish that\n"
+    "• preview — write a post without publishing\n"
+    "• preview about <topic> — draft only\n"
+    "• status — last post and next schedule"
 )
 
 
@@ -327,6 +356,8 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
             return
 
     text = message_text(msg).strip()
+    text = re.sub(r"^@agent1[a-z0-9]+\s+", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"^@linkedin-buddy\s+", "", text, flags=re.IGNORECASE)
     if not text:
         return
 
@@ -334,16 +365,10 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
     ctx.logger.info(f"Chat from {sender}: {text}")
 
     try:
-        if "post now" in lowered or lowered == "publish":
-            result = run_daily_post(ctx)
-            await ctx.send(sender, create_text_chat(result))
-
-        elif "preview" in lowered:
-            topic = TOPICS[now_local().timetuple().tm_yday % len(TOPICS)]
-            post, _ = write_post(topic)
-            await ctx.send(sender, create_text_chat(f"Preview (not posted):\n\n{post}"))
-
-        elif "status" in lowered:
+        if lowered in ("status", "help"):
+            if lowered == "help":
+                await ctx.send(sender, create_text_chat(HELP_TEXT))
+                return
             last = ctx.storage.get("last_post_date") or "never"
             await ctx.send(
                 sender,
@@ -354,7 +379,26 @@ async def handle_message(ctx: Context, sender: str, msg: ChatMessage):
                     f"Today's topic: {TOPICS[now_local().timetuple().tm_yday % len(TOPICS)]}"
                 ),
             )
+            return
 
+        if lowered.startswith("preview"):
+            topic = re.sub(r"^preview(\s+about)?\s*", "", text, flags=re.IGNORECASE).strip()
+            if not topic:
+                topic = TOPICS[now_local().timetuple().tm_yday % len(TOPICS)]
+            post, _ = write_post(topic)
+            await ctx.send(sender, create_text_chat(f"Preview (not posted):\n\n{post}"))
+            return
+
+        if lowered in ("post now", "publish") or lowered.startswith("post"):
+            topic = re.sub(r"^post(\s+now)?(\s+about)?\s*", "", text, flags=re.IGNORECASE).strip()
+            result = run_daily_post(ctx, topic or None)
+            await ctx.send(sender, create_text_chat(result))
+            return
+
+        # Any other longer message is treated as a custom post topic
+        if len(text) > 40:
+            result = run_daily_post(ctx, text)
+            await ctx.send(sender, create_text_chat(result))
         else:
             await ctx.send(sender, create_text_chat(HELP_TEXT))
     except Exception as err:
