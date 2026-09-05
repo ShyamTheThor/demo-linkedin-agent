@@ -463,3 +463,4 @@ python3 agent.py
 - Chat Protocol: [docs.agentverse.ai](https://docs.agentverse.ai/documentation/getting-started/enable-chat-protocol)
 - LinkedIn apps: [linkedin.com/developers/apps](https://www.linkedin.com/developers/apps)
 - This repo: [github.com/ShyamRV/demo-linkedin-agent](https://github.com/ShyamRV/demo-linkedin-agent)
+- gg bud
